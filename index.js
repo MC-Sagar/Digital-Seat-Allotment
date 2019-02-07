@@ -16,7 +16,7 @@ app.set('view engine', 'ejs')
 app.use('/assets',express.static('assets'))
 
 
-
+app.use('/api', require('./controllers/login'))
 
 uploadfile(app)
 
@@ -25,11 +25,11 @@ uploadfile(app)
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     next();
 });*/
-app.use('/api', require('./controllers/login'))
+
 
 
 //
 
 app.listen(3000, function(){
-    console.log('Listening....')
+    console.log('Listening to port 3000....')
 });
