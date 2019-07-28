@@ -1,9 +1,8 @@
 var csv = require('csvtojson')
 var fs = require('fs')
-var connection = require('./connection.js')
 var async = require("async");
 const nodemailer = require('nodemailer');
-
+var json = null
 
 module.exports = function (app) {
 
@@ -30,20 +29,19 @@ module.exports = function (app) {
                 else {
                     var csvFilePath = filename
                     csv().fromFile(csvFilePath).then((jsonObj) => {
-                        //console.log(jsonObj)
-                        var values = []
-                        var val = []
-                        jsonObj.forEach(function(item){
-                            val = [item.usn,item.course_id,item.block_id,item.room,item.seat,'0']
-                            values.push(val)
-                        })
-                        console.log(values)
+                        // console.log(jsonObj)
+                        json = jsonObj
+                        // var values = []
+                        // var val = []
+                        // jsonObj.forEach(function(item){
+                        //     val = [item.usn,item.course,item.block,item.room,item.seat]
+                        //     values.push(val)
+                        // })
+                        // console.log(values)
                         fs.unlink(filename,function(error){if (error) throw error})
-                        
-                        var query = 'Insert into exam values ?'
-                        connection.query(query, [values], function (error, result, rows, fields) { if (error) throw err; 
-                            res.redirect('/mail')
-                            })
+                        //res.send("Hey")
+                        res.redirect('/mail')
+
                     })
                 }
             })
@@ -53,23 +51,33 @@ module.exports = function (app) {
 
 
     app.get('/mail',function(req,res){
-        var query = 'select s.usn, s.name, s.email, c.course_name, b.block_name, e.room_name, e.seat from exam e, student s, block b, course c where e.usn = s.usn and e.block_id = b.block_id and e.course_id = c.course_id'
-                        connection.query(query, function (err, result, field) {
-                            if (err) throw err
-                            //console.log(result)   
-                            res.render('students', { data: result })
-                        })
+        fs.readFile('./controllers/studentRec.txt',function (err,data){
+            if(err){
+              throw err
+            }
+            content = data.toString()
+            lines = content.split(/\r?\n/)
+            json.forEach((rec) => {
+                lines.forEach((line) => {
+                    var student = line.split("|")
+                    if(rec.usn==student[0]){
+                        rec.name = student[1]
+                        rec.email = student[2]
+                        return 0
+                    }
+                });
+            }); 
+            console.log(json)   
+        res.render('students', { data: json })
+        })
     })
 
     app.post('/mail',function(req,res){
 
         var listOfEmails = [], success_email = [], failure_email = [];
         var a=0, b=0, c=0, d=0, e=0, f=0
-        var query = 'select e.usn, s.name, s.email, c.course_name, b.block_name, e.room_name, e.seat from exam e, student s, block b, course c where s.usn = e.usn and e.block_id = b.block_id and e.course_id = c.course_id'
-        connection.query(query, function (err, result, field) {
-            if (err) throw err
             var transporter
-            result.forEach(function(item){
+            json.forEach(function(item){
                 listOfEmails.push(item.email)
             })
             function massMailer() {
@@ -80,7 +88,7 @@ module.exports = function (app) {
                     secure: false,
                     auth: {
                         user: 'mc.sagar2@gmail.com',
-                        pass: '' //use your account
+                        pass: '</Hacker>' //use your account
                     },
                     tls: {
                         rejectUnauthorized: false,
@@ -92,8 +100,8 @@ module.exports = function (app) {
             massMailer.prototype.invokeOperation = function() {
                 var self = this;
                 async.each(listOfEmails,self.SendEmail,function(){
-                    console.log(success_email)
-                    console.log(failure_email)
+                    console.log("List of successful mails : "+success_email)
+                    console.log("List of failed mails : "+failure_email)
                     res.redirect('/delete')
                 })
             }
@@ -107,7 +115,7 @@ module.exports = function (app) {
                             from: '"MC-Sagar" <mc.sagar2@gmail.com>', // sender address
                             to: Email, // list of receivers
                             subject: 'Hello!', // Subject line
-                            text: 'Hello '+result[a++].name+'! Your assigned block for todays examination is '+result[b++].block_name+', room name is '+result[c++].room_name+', and your seat number is '+result[d++].seat+', all the best for your '+result[e++].course_name+' exam!' // plain text body
+                            text: 'Hello '+json[a++].name+'! Your assigned block for todays examination is '+json[b++].block+', room name is '+json[c++].room+', and your seat number is '+json[d++].seat+', all the best for your '+json[e++].course+' exam!' // plain text body
                             //html: '<b>Hello world?</b>' // html body    
                         };
                         transporter.sendMail(mailOptions, function(error, info) {               
@@ -122,15 +130,7 @@ module.exports = function (app) {
                         });
                     },
                     function(statusCode,Email,callback) {
-                            console.log("Will update DB for " + Email + " With " + statusCode);
-                            if(statusCode){
-                                var  update = 'UPDATE exam set sent=1 where usn=?'
-                                connection.query(update, [result[f++].usn], function (error, result, rows, fields) { if (error) throw err; 
-                                    var  del = 'CALL `deletee`()'
-                                    connection.query(del, function (error, result, rows, fields) { if (error) throw err;})
-                                })
-                            }
-                            
+                            console.log("Has successfully sent message for "+Email+" : "+statusCode);
                             callback();
                     }
                     ],function(){
@@ -139,7 +139,7 @@ module.exports = function (app) {
                 });
             }
             new massMailer();
-        })
-    res.send('done!');
+        
+    res.send('Refer console!');
     })
 }
