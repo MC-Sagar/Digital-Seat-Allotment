@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/MC-Sagar/DigitalSeat#readme",
   "dependencies": {
-    "async": "^2.6.1",
+    "async": "^3.2.2",
     "body-parser": "^1.18.3",
     "csvjson": "^5.1.0",
     "csvtojson": "^2.0.8",
